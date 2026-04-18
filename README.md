@@ -164,7 +164,7 @@ No setup required.
 Open directly in browser:
 
 ```
-double-click index.html
+double-click index-3.html
 ```
 
 ### Option 2:
