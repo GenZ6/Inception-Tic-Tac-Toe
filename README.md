@@ -214,7 +214,7 @@ open index-3.html
 * Unit tests for game logic
 * Performance profiling
 
-You can also create smaller tic-tac-toe boards in the in each micro grids just like in inception.
+
 ---
 
 ## 🎬 Inspiration
