@@ -150,7 +150,7 @@ The AI evaluates:
 ## 📁 Project Structure
 
 ```
-├── index.html   # Complete game (HTML + CSS + JS)
+├── index-3.html   # Complete game (HTML + CSS + JS)
 ```
 
 ---
@@ -172,7 +172,7 @@ double-click index.html
 Using terminal:
 
 ```bash
-open index.html
+open index-3.html
 ```
 
 ---
