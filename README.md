@@ -164,7 +164,7 @@ No setup required.
 Open directly in browser:
 
 ```
-double-click index-3.html
+double-click index.html
 ```
 
 ### Option 2:
@@ -172,7 +172,7 @@ double-click index-3.html
 Using terminal:
 
 ```bash
-open index-3.html
+open index.html
 ```
 
 ---
