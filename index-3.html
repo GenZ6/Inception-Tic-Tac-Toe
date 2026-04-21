@@ -46,11 +46,20 @@
     .status { font-size: 15px; font-weight: 500; color: #1a1a1a; }
     .sub { font-size: 12px; color: #888; margin-bottom: 10px; min-height: 16px; }
 
-    .game-wrap { position: relative; min-height: 200px; }
+    /* Square container using padding-bottom trick */
+    .game-wrap {
+      position: relative;
+      width: 100%;
+      height: 0;
+      padding-bottom: 100%;
+    }
 
     .macro-board {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
       gap: 5px;
       border: 3px solid #555;
       border-radius: 12px;
@@ -60,7 +69,14 @@
     }
     .macro-board.fade-out { opacity: 0; transform: scale(0.93); }
 
-    .macro-cell { border-radius: 5px; overflow: hidden; aspect-ratio: 1; position: relative; background: #fff; }
+    .macro-cell {
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+      background: #fff;
+      min-width: 0;
+      min-height: 0;
+    }
     .macro-cell.cx { background: #E6F1FB; display: flex; align-items: center; justify-content: center; }
     .macro-cell.co { background: #FAECE7; display: flex; align-items: center; justify-content: center; }
     .macro-cell.cdx { background: #EAF3DE; display: flex; align-items: center; justify-content: center; }
@@ -71,13 +87,22 @@
     .dbadge.x { background: #E6F1FB; color: #185FA5; }
     .dbadge.o { background: #FAECE7; color: #993C1D; }
 
-    .micro-board { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; padding: 3px; }
+    /* Micro board fills macro cell absolutely, rows locked too */
+    .micro-board {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      padding: 3px;
+    }
     .micro-cell {
       display: flex; align-items: center; justify-content: center;
       font-size: clamp(9px, 2.4vw, 18px); font-weight: 500;
       cursor: pointer; transition: background .1s; color: #888;
       border-right: 1px solid #ccc;
       border-bottom: 1px solid #ccc;
+      min-width: 0; min-height: 0; overflow: hidden;
     }
     .micro-cell:nth-child(3n) { border-right: none; }
     .micro-cell:nth-child(7), .micro-cell:nth-child(8), .micro-cell:nth-child(9) { border-bottom: none; }
@@ -86,7 +111,8 @@
     .micro-cell.mx { color: #185FA5; } .micro-cell.mo { color: #993C1D; }
 
     .result-overlay {
-      position: absolute; inset: 0;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
       opacity: 0; pointer-events: none;
       transition: opacity .5s ease;
@@ -301,21 +327,17 @@ function showResult(winner){
   const overlay=document.getElementById('overlay');
   const label=document.getElementById('r-label');
   const board=document.getElementById('board');
-
   if(winner){
     scores[winner]++;
     document.getElementById('sx').textContent=`${is1p?'You':'X'}: ${scores.X}`;
     document.getElementById('so').textContent=`${is1p?'AI':'O'}: ${scores.O}`;
   }
-
   let type,lbl;
   if(!winner){type='draw';lbl='Draw!';}
   else if(is1p){type=winner==='X'?'win':'lose';lbl=winner==='X'?'You Win!':'You Lose!';}
   else{type='win';lbl=`Player ${winner} Wins!`;}
-
   overlay.className='result-overlay result-'+type;
   label.textContent=lbl;
-
   board.classList.add('fade-out');
   setTimeout(()=>overlay.classList.add('show'),500);
 }
@@ -325,11 +347,9 @@ function initGame(){
   const board=document.getElementById('board');
   overlay.classList.remove('show');
   board.classList.remove('fade-out');
-
   macro=Array(9).fill(null);
   micro=Array.from({length:9},()=>Array(9).fill(null));
   cur='X';over=false;busy=false;
-
   const is1p=mode()==='1p';
   document.getElementById('diff').style.display=is1p?'':'none';
   const who=document.getElementById('who');
