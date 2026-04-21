@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inception Tic Tac Toe</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f5f5f2;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+    }
+    header { text-align: center; margin-bottom: 1.25rem; }
+    header h1 { font-size: 1.6rem; font-weight: 600; color: #1a1a1a; letter-spacing: -0.5px; }
+    header p { font-size: 0.8rem; color: #888; margin-top: 4px; }
+
+    #app {
+      width: 100%; max-width: 620px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+    .scores { display: flex; gap: 8px; }
+    .pill { padding: 3px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }
+    .px { background: #E6F1FB; color: #185FA5; }
+    .po { background: #FAECE7; color: #993C1D; }
+    .controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    select, button.reset {
+      font-size: 12px; padding: 5px 10px;
+      border-radius: 8px; border: 1px solid #ddd;
+      background: #fff; color: #1a1a1a; cursor: pointer;
+    }
+    select:hover, button.reset:hover { background: #f5f5f5; }
+
+    .who { display: flex; gap: 8px; font-size: 11px; color: #888; margin-bottom: 6px; }
+    .who span { padding: 2px 8px; border-radius: 10px; }
+    .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+    .status { font-size: 15px; font-weight: 500; color: #1a1a1a; }
+    .sub { font-size: 12px; color: #888; margin-bottom: 10px; min-height: 16px; }
+
+    /* Square container using padding-bottom trick */
+    .game-wrap {
+      position: relative;
+      width: 100%;
+      height: 0;
+      padding-bottom: 100%;
+    }
+
+    .macro-board {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 5px;
+      border: 3px solid #555;
+      border-radius: 12px;
+      padding: 5px;
+      background: #555;
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    .macro-board.fade-out { opacity: 0; transform: scale(0.93); }
+
+    .macro-cell {
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+      background: #fff;
+      min-width: 0;
+      min-height: 0;
+    }
+    .macro-cell.cx { background: #E6F1FB; display: flex; align-items: center; justify-content: center; }
+    .macro-cell.co { background: #FAECE7; display: flex; align-items: center; justify-content: center; }
+    .macro-cell.cdx { background: #EAF3DE; display: flex; align-items: center; justify-content: center; }
+    .macro-cell.cdo { background: #EAF3DE; display: flex; align-items: center; justify-content: center; }
+    .big-sym { font-size: clamp(24px, 6.5vw, 50px); font-weight: 500; }
+    .big-sym.x { color: #185FA5; } .big-sym.o { color: #993C1D; }
+    .dbadge { position: absolute; top: 3px; right: 4px; font-size: 8px; padding: 1px 4px; border-radius: 3px; font-weight: 500; line-height: 1.4; }
+    .dbadge.x { background: #E6F1FB; color: #185FA5; }
+    .dbadge.o { background: #FAECE7; color: #993C1D; }
+
+    /* Micro board fills macro cell absolutely, rows locked too */
+    .micro-board {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      padding: 3px;
+    }
+    .micro-cell {
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(9px, 2.4vw, 18px); font-weight: 500;
+      cursor: pointer; transition: background .1s; color: #888;
+      border-right: 1px solid #ccc;
+      border-bottom: 1px solid #ccc;
+      min-width: 0; min-height: 0; overflow: hidden;
+    }
+    .micro-cell:nth-child(3n) { border-right: none; }
+    .micro-cell:nth-child(7), .micro-cell:nth-child(8), .micro-cell:nth-child(9) { border-bottom: none; }
+    .micro-cell:hover:not(.taken):not(.locked) { background: #f5f5f5; }
+    .micro-cell.taken, .micro-cell.locked { cursor: default; }
+    .micro-cell.mx { color: #185FA5; } .micro-cell.mo { color: #993C1D; }
+
+    .result-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .5s ease;
+      border-radius: 12px;
+      z-index: 10;
+      background: #fff;
+    }
+    .result-overlay.show { opacity: 1; pointer-events: auto; }
+    .result-icon { font-size: clamp(44px, 12vw, 88px); font-weight: 500; line-height: 1; }
+    .result-label { font-size: clamp(22px, 6vw, 38px); font-weight: 500; letter-spacing: -0.5px; }
+    .result-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+    .result-win .result-icon, .result-win .result-label { color: #185FA5; }
+    .result-lose .result-icon, .result-lose .result-label { color: #993C1D; }
+    .result-draw .result-icon, .result-draw .result-label { color: #888; }
+
+    .thinking-dots span {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+      background: #378ADD; margin: 0 2px; animation: bounce .9s infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: .2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    .legend { margin-top: 10px; display: flex; gap: 12px; font-size: 11px; color: #888; flex-wrap: wrap; }
+    .li { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 9px; height: 9px; border-radius: 2px; }
+
+    footer { margin-top: 1.25rem; font-size: 11px; color: #aaa; text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Inception Tic Tac Toe</h1>
+  <p>A dream within a dream — win small boards to claim the big one</p>
+</header>
+
+<div id="app">
+  <div class="top-bar">
+    <div class="scores">
+      <span class="pill px" id="sx">X: 0</span>
+      <span class="pill po" id="so">O: 0</span>
+    </div>
+    <div class="controls">
+      <select id="mode" onchange="onModeChange()">
+        <option value="1p">vs AI</option>
+        <option value="2p">2 Players</option>
+      </select>
+      <select id="diff">
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard" selected>Hard</option>
+      </select>
+      <button class="reset" onclick="initGame()">New game</button>
+    </div>
+  </div>
+
+  <div class="who" id="who">
+    <span class="pill px">You = X</span>
+    <span class="pill po">AI = O</span>
+  </div>
+  <div class="status-row">
+    <div class="status" id="status">Your turn</div>
+    <div class="thinking-dots" id="dots" style="display:none"><span></span><span></span><span></span></div>
+  </div>
+  <div class="sub" id="sub">Play anywhere — claim small boards, win the big one</div>
+
+  <div class="game-wrap">
+    <div class="macro-board" id="board"></div>
+    <div class="result-overlay" id="overlay">
+      <div class="result-icon">✦</div>
+      <div class="result-label" id="r-label"></div>
+      <div class="result-sub">Press "New game" to play again</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="li"><div class="dot" style="background:#E6F1FB;border:1px solid #378ADD"></div><span>X claimed</span></div>
+    <div class="li"><div class="dot" style="background:#FAECE7;border:1px solid #D85A30"></div><span>O claimed</span></div>
+    <div class="li"><div class="dot" style="background:#EAF3DE;border:1px solid #639922"></div><span>Draw → opponent claims</span></div>
+  </div>
+</div>
+
+<footer>Inspired by the movie Inception &nbsp;·&nbsp; Built with vanilla JS</footer>
+
+<script>
+const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const PW=[2,1,2,1,3,1,2,1,2];
+let macro,micro,cur,over,busy,scores={X:0,O:0};
+
+function opp(p){return p==='X'?'O':'X';}
+function mode(){return document.getElementById('mode').value;}
+function diff(){return document.getElementById('diff').value;}
+function win(b){for(let[a,c,d]of LINES)if(b[a]&&b[a]===b[c]&&b[a]===b[d])return b[a];return null;}
+function owner(r){if(!r)return null;return r.startsWith('D:')?r[2]:r;}
+function plain(m){return m.map(owner);}
+
+function apply(mac,mic,p,mi,ci){
+  const nm=mic.map(b=>[...b]),na=[...mac];
+  nm[mi][ci]=p;
+  const w=win(nm[mi]);
+  if(w)na[mi]=w;
+  else if(nm[mi].every(c=>c))na[mi]='D:'+opp(p);
+  return{mac:na,mic:nm};
+}
+
+function moves(mac,mic){
+  const r=[];
+  for(let mi=0;mi<9;mi++){if(mac[mi])continue;for(let ci=0;ci<9;ci++)if(!mic[mi][ci])r.push([mi,ci]);}
+  return r;
+}
+
+function lineval(cells,p){
+  const m=cells.filter(x=>x===p).length,e=cells.filter(x=>!x).length,t=cells.filter(x=>x===opp(p)).length;
+  if(t>0&&m>0)return 0;
+  if(m===3)return 1000;if(m===2&&e===1)return 50;if(m===1&&e===2)return 5;return 0;
+}
+
+function evaluate(mac,mic){
+  const pl=plain(mac),w=win(pl);
+  if(w==='O')return 500000;if(w==='X')return-500000;
+  let s=0;
+  for(const[a,b,c]of LINES){const row=[pl[a],pl[b],pl[c]];s+=lineval(row,'O')*200;s-=lineval(row,'X')*250;}
+  for(let i=0;i<9;i++){if(pl[i]==='O')s+=PW[i]*80;else if(pl[i]==='X')s-=PW[i]*80;}
+  for(let mi=0;mi<9;mi++){
+    if(mac[mi])continue;
+    const pw=PW[mi],brd=mic[mi];
+    for(const[a,b,c]of LINES){const row=[brd[a],brd[b],brd[c]];s+=lineval(row,'O')*pw*4;s-=lineval(row,'X')*pw*5;}
+    for(let ci=0;ci<9;ci++){if(brd[ci]==='O')s+=PW[ci]*pw;else if(brd[ci]==='X')s-=PW[ci]*pw;}
+    const filled=brd.filter(c=>c).length;
+    if(filled===8&&!win(brd)){
+      const xc=brd.filter(c=>c==='X').length,oc=brd.filter(c=>c==='O').length;
+      const nib=xc===oc?'X':'O';
+      if(nib==='O')s-=pw*60;else s+=pw*60;
+    }
+  }
+  return s;
+}
+
+function quickscore(mac,mic,p,mi,ci){
+  const{mac:nm}=apply(mac,mic,p,mi,ci),pl=plain(nm);
+  if(win(pl)===p)return 1e9;
+  for(let[a,b,c]of LINES)if(pl[a]===opp(p)&&pl[b]===opp(p)&&pl[c]===opp(p))return-1e9;
+  const no=owner(nm[mi]);let s=0;
+  if(!mac[mi]&&no===p)s+=10000*PW[mi];
+  else if(!mac[mi]&&no===opp(p))s-=5000*PW[mi];
+  const brd=mic[mi],filled=brd.filter(c=>c).length;
+  if(filled===8&&!win(brd))s-=3000;
+  s+=PW[mi]*30+PW[ci]*10;return s;
+}
+
+function mmove(mac,mic,p,depth,alpha,beta,startT){
+  if(Date.now()-startT>1800)return{s:evaluate(mac,mic),cut:true};
+  const pl=plain(mac),w=win(pl);
+  if(w==='O')return{s:500000+depth*100};
+  if(w==='X')return{s:-500000-depth*100};
+  if(depth===0)return{s:evaluate(mac,mic)};
+  const mv=moves(mac,mic);if(!mv.length)return{s:evaluate(mac,mic)};
+  const ordered=mv.map(([mi,ci])=>({mi,ci,s:quickscore(mac,mic,p,mi,ci)}))
+    .sort((a,b)=>p==='O'?b.s-a.s:a.s-b.s);
+  let best=p==='O'?-Infinity:Infinity;
+  for(const{mi,ci}of ordered){
+    const{mac:nm,mic:nc}=apply(mac,mic,p,mi,ci);
+    const{s,cut}=mmove(nm,nc,opp(p),depth-1,alpha,beta,startT);
+    if(cut)return{s:best,cut:true};
+    if(p==='O'){if(s>best)best=s;if(s>alpha)alpha=s;}
+    else{if(s<best)best=s;if(s<beta)beta=s;}
+    if(beta<=alpha)break;
+  }
+  return{s:best};
+}
+
+function aiMove(){
+  const d=diff(),mv=moves(macro,micro);if(!mv.length)return null;
+  if(d==='easy'){
+    const sc=mv.map(([mi,ci])=>({mi,ci,s:quickscore(macro,micro,'O',mi,ci)+Math.random()*500-250}));
+    sc.sort((a,b)=>b.s-a.s);return[sc[0].mi,sc[0].ci];
+  }
+  if(d==='medium'){
+    const startT=Date.now(),ordered=mv.map(([mi,ci])=>({mi,ci,s:quickscore(macro,micro,'O',mi,ci)})).sort((a,b)=>b.s-a.s);
+    let best=null,bs=-Infinity;
+    for(const{mi,ci}of ordered){
+      const{mac:nm,mic:nc}=apply(macro,micro,'O',mi,ci);
+      const{s}=mmove(nm,nc,'X',2,-Infinity,Infinity,startT);
+      if(s>bs){bs=s;best=[mi,ci];}
+    }
+    return best;
+  }
+  const startT=Date.now();let best=null;
+  const ordered=mv.map(([mi,ci])=>({mi,ci,s:quickscore(macro,micro,'O',mi,ci)})).sort((a,b)=>b.s-a.s);
+  for(let depth=1;depth<=7;depth++){
+    let cur=null,cs=-Infinity,alpha=-Infinity,beta=Infinity,timedOut=false;
+    for(const{mi,ci}of ordered){
+      const{mac:nm,mic:nc}=apply(macro,micro,'O',mi,ci);
+      const{s,cut}=mmove(nm,nc,'X',depth-1,alpha,beta,startT);
+      if(cut){timedOut=true;break;}
+      if(s>cs){cs=s;cur=[mi,ci];}
+      if(s>alpha)alpha=s;
+    }
+    if(cur)best=cur;
+    if(timedOut||Date.now()-startT>1500)break;
+  }
+  return best;
+}
+
+function showResult(winner){
+  const is1p=mode()==='1p';
+  const overlay=document.getElementById('overlay');
+  const label=document.getElementById('r-label');
+  const board=document.getElementById('board');
+  if(winner){
+    scores[winner]++;
+    document.getElementById('sx').textContent=`${is1p?'You':'X'}: ${scores.X}`;
+    document.getElementById('so').textContent=`${is1p?'AI':'O'}: ${scores.O}`;
+  }
+  let type,lbl;
+  if(!winner){type='draw';lbl='Draw!';}
+  else if(is1p){type=winner==='X'?'win':'lose';lbl=winner==='X'?'You Win!':'You Lose!';}
+  else{type='win';lbl=`Player ${winner} Wins!`;}
+  overlay.className='result-overlay result-'+type;
+  label.textContent=lbl;
+  board.classList.add('fade-out');
+  setTimeout(()=>overlay.classList.add('show'),500);
+}
+
+function initGame(){
+  const overlay=document.getElementById('overlay');
+  const board=document.getElementById('board');
+  overlay.classList.remove('show');
+  board.classList.remove('fade-out');
+  macro=Array(9).fill(null);
+  micro=Array.from({length:9},()=>Array(9).fill(null));
+  cur='X';over=false;busy=false;
+  const is1p=mode()==='1p';
+  document.getElementById('diff').style.display=is1p?'':'none';
+  const who=document.getElementById('who');
+  who.innerHTML=is1p
+    ?'<span class="pill px">You = X</span><span class="pill po">AI = O</span>'
+    :'<span class="pill px">Player 1 = X</span><span class="pill po">Player 2 = O</span>';
+  setStatus(is1p?'Your turn':`Player X's turn`,'Play anywhere — claim small boards, win the big one');
+  render();
+}
+
+function onModeChange(){initGame();}
+
+function setStatus(s,sub=''){
+  document.getElementById('status').textContent=s;
+  document.getElementById('sub').textContent=sub;
+  document.getElementById('dots').style.display='none';
+}
+
+function thinking(){
+  document.getElementById('status').textContent='AI thinking';
+  document.getElementById('sub').textContent='';
+  document.getElementById('dots').style.display='flex';
+}
+
+function endGame(w){
+  over=true;
+  document.getElementById('status').textContent='';
+  document.getElementById('sub').textContent='';
+  showResult(w);
+}
+
+function play(mi,ci){
+  if(over||busy)return;
+  if(macro[mi]||micro[mi][ci])return;
+  doMove(mi,ci);
+  if(over)return;
+  if(mode()==='1p'&&cur==='O'){
+    busy=true;thinking();render();
+    setTimeout(()=>{
+      const m=aiMove();busy=false;
+      if(m)doMove(m[0],m[1]);
+      if(!over)setStatus('Your turn','Play anywhere — claim small boards, win the big one');
+    },300);
+  }
+}
+
+function doMove(mi,ci){
+  const res=apply(macro,micro,cur,mi,ci);
+  macro=res.mac;micro=res.mic;
+  const pl=plain(macro),w=win(pl);
+  if(w){endGame(w);return;}
+  if(pl.every(c=>c)){endGame(null);return;}
+  cur=opp(cur);
+  if(!over&&mode()==='2p')setStatus(`Player ${cur}'s turn`,'Play anywhere — claim small boards, win the big one');
+  render();
+}
+
+function render(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  for(let mi=0;mi<9;mi++){
+    const mc=document.createElement('div');mc.className='macro-cell';
+    const raw=macro[mi];
+    if(raw){
+      const isDraw=raw.startsWith('D:'),w=isDraw?raw[2]:raw;
+      mc.classList.add(isDraw?(w==='X'?'cdx':'cdo'):(w==='X'?'cx':'co'));
+      const bs=document.createElement('div');bs.className='big-sym '+(w==='X'?'x':'o');bs.textContent=w;mc.appendChild(bs);
+      if(isDraw){const db=document.createElement('div');db.className='dbadge '+(w==='X'?'x':'o');db.textContent='draw';mc.appendChild(db);}
+    } else {
+      const grid=document.createElement('div');grid.className='micro-board';
+      for(let ci=0;ci<9;ci++){
+        const cc=document.createElement('div');cc.className='micro-cell';
+        const v=micro[mi][ci];
+        if(v){cc.textContent=v;cc.classList.add('taken',v==='X'?'mx':'mo');}
+        else if(!over&&!busy){cc.addEventListener('click',(()=>{const a=mi,b=ci;return()=>play(a,b);})());}
+        else cc.classList.add('locked');
+        grid.appendChild(cc);
+      }
+      mc.appendChild(grid);
+    }
+    board.appendChild(mc);
+  }
+}
+
+initGame();
+</script>
+</body>
+</html>
