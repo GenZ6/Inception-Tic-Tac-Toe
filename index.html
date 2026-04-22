@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inception Tic Tac Toe</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f5f5f2;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+    }
+    header { text-align: center; margin-bottom: 1.25rem; }
+    header h1 { font-size: 1.6rem; font-weight: 600; color: #1a1a1a; letter-spacing: -0.5px; }
+    header p { font-size: 0.8rem; color: #888; margin-top: 4px; }
+
+    #app {
+      width: 100%; max-width: 620px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+    .scores { display: flex; gap: 8px; }
+    .pill { padding: 3px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }
+    .px { background: #E6F1FB; color: #185FA5; }
+    .po { background: #FAECE7; color: #993C1D; }
+    .controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    select, button.reset {
+      font-size: 12px; padding: 5px 10px;
+      border-radius: 8px; border: 1px solid #ddd;
+      background: #fff; color: #1a1a1a; cursor: pointer;
+    }
+    select:hover, button.reset:hover { background: #f5f5f5; }
+
+    .who { display: flex; gap: 8px; font-size: 11px; color: #888; margin-bottom: 6px; }
+    .who span { padding: 2px 8px; border-radius: 10px; }
+    .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+    .status { font-size: 15px; font-weight: 500; color: #1a1a1a; }
+    .sub { font-size: 12px; color: #888; margin-bottom: 10px; min-height: 16px; }
+
+    /* Square container using padding-bottom trick */
+    .game-wrap {
+      position: relative;
+      width: 100%;
+      height: 0;
+      padding-bottom: 100%;
+    }
+
+    .macro-board {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 5px;
+      border: 3px solid #555;
+      border-radius: 12px;
+      padding: 5px;
+      background: #555;
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    .macro-board.fade-out { opacity: 0; transform: scale(0.93); }
+
+    .macro-cell {
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+      background: #fff;
+      min-width: 0;
+      min-height: 0;
+    }
+    .macro-cell.cx { background: #E6F1FB; display: flex; align-items: center; justify-content: center; }
+    .macro-cell.co { background: #FAECE7; display: flex; align-items: center; justify-content: center; }
+    .macro-cell.cdx { background: #EAF3DE; display: flex; align-items: center; justify-content: center; }
+    .macro-cell.cdo { background: #EAF3DE; display: flex; align-items: center; justify-content: center; }
+    .big-sym { font-size: clamp(24px, 6.5vw, 50px); font-weight: 500; }
+    .big-sym.x { color: #185FA5; } .big-sym.o { color: #993C1D; }
+    .dbadge { position: absolute; top: 3px; right: 4px; font-size: 8px; padding: 1px 4px; border-radius: 3px; font-weight: 500; line-height: 1.4; }
+    .dbadge.x { background: #E6F1FB; color: #185FA5; }
+    .dbadge.o { background: #FAECE7; color: #993C1D; }
+
+    /* Micro board fills macro cell absolutely, rows locked too */
+    .micro-board {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      padding: 3px;
+    }
+    .micro-cell {
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(9px, 2.4vw, 18px); font-weight: 500;
+      cursor: pointer; transition: background .1s; color: #888;
+      border-right: 1px solid #ccc;
+      border-bottom: 1px solid #ccc;
+      min-width: 0; min-height: 0; overflow: hidden;
+    }
+    .micro-cell:nth-child(3n) { border-right: none; }
+    .micro-cell:nth-child(7), .micro-cell:nth-child(8), .micro-cell:nth-child(9) { border-bottom: none; }
+    .micro-cell:hover:not(.taken):not(.locked) { background: #f5f5f5; }
+    .micro-cell.taken, .micro-cell.locked { cursor: default; }
+    .micro-cell.mx { color: #185FA5; } .micro-cell.mo { color: #993C1D; }
+
+    .result-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .5s ease;
+      border-radius: 12px;
+      z-index: 10;
+      background: #fff;
+    }
+    .result-overlay.show { opacity: 1; pointer-events: auto; }
+    .result-icon { font-size: clamp(44px, 12vw, 88px); font-weight: 500; line-height: 1; }
+    .result-label { font-size: clamp(22px, 6vw, 38px); font-weight: 500; letter-spacing: -0.5px; }
+    .result-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+    .result-win .result-icon, .result-win .result-label { color: #185FA5; }
+    .result-lose .result-icon, .result-lose .result-label { color: #993C1D; }
+    .result-draw .result-icon, .result-draw .result-label { color: #888; }
+
+    .thinking-dots span {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+      background: #378ADD; margin: 0 2px; animation: bounce .9s infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: .2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    .legend { margin-top: 10px; display: flex; gap: 12px; font-size: 11px; color: #888; flex-wrap: wrap; }
+    .li { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 9px; height: 9px; border-radius: 2px; }
+
+    footer { margin-top: 1.25rem; font-size: 11px; color: #aaa; text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Inception Tic Tac Toe</h1>
+  <p>A dream within a dream — win small boards to claim the big one</p>
+</header>
+
+<div id="app">
+  <div class="top-bar">
+    <div class="scores">
+      <span class="pill px" id="sx">X: 0</span>
+      <span class="pill po" id="so">O: 0</span>
+    </div>
+    <div class="controls">
+      <select id="mode" onchange="onModeChange()">
+        <option value="1p">vs AI</option>
+        <option value="2p">2 Players</option>
+      </select>
+      <select id="diff">
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard" selected>Hard</option>
+      </select>
+      <button class="reset" onclick="initGame()">New game</button>
+    </div>
+  </div>
+
+  <div class="who" id="who">
+    <span class="pill px">You = X</span>
+    <span class="pill po">AI = O</span>
+  </div>
+  <div class="status-row">
+    <div class="status" id="status">Your turn</div>
+    <div class="thinking-dots" id="dots" style="display:none"><span></span><span></span><span></span></div>
+  </div>
+  <div class="sub" id="sub">Play anywhere — claim small boards, win the big one</div>
+
+  <div class="game-wrap">
+    <div class="macro-board" id="board"></div>
+    <div class="result-overlay" id="overlay">
+      <div class="result-icon">✦</div>
+      <div class="result-label" id="r-label"></div>
+      <div class="result-sub">Press "New game" to play again</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="li"><div class="dot" style="background:#E6F1FB;border:1px solid #378ADD"></div><span>X claimed</span></div>
+    <div class="li"><div class="dot" style="background:#FAECE7;border:1px solid #D85A30"></div><span>O claimed</span></div>
+    <div class="li"><div class="dot" style="background:#EAF3DE;border:1px solid #639922"></div><span>Draw → opponent claims</span></div>
+  </div>
+</div>
+
+<footer>Inspired by the movie Inception &nbsp;·&nbsp; Built with vanilla JS</footer>
+
+<script>
+const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const PW=[2,1,2,1,3,1,2,1,2]; // corner=2, edge=1, center=3
+let macro,micro,cur,over,busy,scores={X:0,O:0};
+
+function opp(p){return p==='X'?'O':'X';}
+function mode(){return document.getElementById('mode').value;}
+function diff(){return document.getElementById('diff').value;}
+function win(b){for(const[a,c,d]of LINES)if(b[a]&&b[a]===b[c]&&b[a]===b[d])return b[a];return null;}
+function owner(r){if(!r)return null;return r.startsWith('D:')?r[2]:r;}
+function plain(m){return m.map(owner);}
+
+function applyMove(mac,mic,p,mi,ci){
+  const nm=mic.map(b=>[...b]),na=[...mac];
+  nm[mi][ci]=p;
+  const w=win(nm[mi]);
+  if(w)na[mi]=w;
+  else if(nm[mi].every(c=>c))na[mi]='D:'+opp(p);
+  return{mac:na,mic:nm};
+}
+
+function moves(mac,mic){
+  const r=[];
+  for(let mi=0;mi<9;mi++){if(mac[mi])continue;for(let ci=0;ci<9;ci++)if(!mic[mi][ci])r.push([mi,ci]);}
+  return r;
+}
+
+// ═══════════════════════════════════════════════
+// HUMAN PATTERN LEARNING ENGINE
+// ═══════════════════════════════════════════════
+const humanProfile = {
+  // Raw move frequencies: how often human plays [mi][ci]
+  cellFreq: Array.from({length:9},()=>new Array(9).fill(0)),
+  // Which macro boards human targets most
+  boardFreq: new Array(9).fill(0),
+  // Human's win-rate context: do they go for micro wins or macro strategy?
+  microWins: 0,   // times human completed a micro board
+  macroSetups: 0, // times human created a macro 2-in-a-row
+  forkAttempts: 0,// times human created a fork
+  totalMoves: 0,
+  gamesPlayed: 0,
+  // Recent move sequence (last 20 moves) for short-term pattern
+  recentMoves: [],
+  // Track human's preferred response to center: do they go corner or edge?
+  centerResponse: {corner:0, edge:0},
+  // Predicted next macro board human will target
+  predictedBoards: new Array(9).fill(0),
+};
+
+function recordHumanMove(mi, ci, macBefore, micBefore){
+  if(mode()!=='1p') return;
+  const p=humanProfile;
+  p.cellFreq[mi][ci]++;
+  p.boardFreq[mi]++;
+  p.totalMoves++;
+  p.recentMoves.push([mi,ci]);
+  if(p.recentMoves.length>30) p.recentMoves.shift();
+
+  // Did this move create a micro threat (2-in-a-row)?
+  const brd=[...micBefore[mi]]; brd[ci]='X';
+  let mt=0;
+  for(const[a,b,c]of LINES){
+    const r=[brd[a],brd[b],brd[c]];
+    if(r.filter(x=>x==='X').length===2&&r.filter(x=>!x).length===1)mt++;
+  }
+  if(mt>=2) p.forkAttempts++;
+  if(mt>=1) p.macroSetups++;
+
+  // Did this win the micro board?
+  if(win(brd)==='X') p.microWins++;
+
+  // Update predicted boards: decay old predictions then boost neighbors of recent moves
+  for(let i=0;i<9;i++) p.predictedBoards[i]*=0.85;
+  // Human tends to target the board corresponding to their last cell played
+  if(!macBefore[ci]) p.predictedBoards[ci]+=3;
+  // Also boost boards adjacent to boards they just played in
+  p.predictedBoards[mi]+=1;
+
+  // Center response analysis
+  if(macBefore[4]===null && micBefore[4].filter(c=>c).length===0){
+    if([0,2,6,8].includes(mi)) p.centerResponse.corner++;
+    else if([1,3,5,7].includes(mi)) p.centerResponse.edge++;
+  }
+}
+
+// Get a threat multiplier for a given cell based on human patterns
+// Higher = human is more likely to play here = AI should prioritize blocking
+function humanThreatWeight(mi, ci){
+  const p=humanProfile;
+  if(p.totalMoves<3) return 1.0;
+  const freq=p.cellFreq[mi][ci];
+  const boardBias=p.boardFreq[mi]/Math.max(p.totalMoves,1);
+  const cellBias=freq/Math.max(p.totalMoves,1);
+  const recentBoost=p.recentMoves.slice(-8).filter(([a,b])=>a===mi).length*0.3;
+  const predicted=p.predictedBoards[mi]/10;
+  return 1.0+boardBias*4+cellBias*3+recentBoost+predicted;
+}
+
+// Predict the top 5 cells the human is likely to play next
+function predictHumanMoves(mac, mic){
+  const p=humanProfile;
+  const avail=moves(mac,mic);
+  if(avail.length===0) return [];
+  return avail.map(([mi,ci])=>({
+    mi,ci,
+    score: humanThreatWeight(mi,ci)
+      + (p.predictedBoards[mi]||0)*0.5
+      + PW[mi]*0.3 + PW[ci]*0.1
+  })).sort((a,b)=>b.score-a.score).slice(0,5);
+}
+
+// ═══════════════════════════════════════════════
+// PERFECT MICRO-BOARD SOLVER
+// ═══════════════════════════════════════════════
+const SOLVE_CACHE=new Map();
+
+function boardKey(board){
+  let k=0;
+  for(let i=0;i<9;i++) k=k*3+(board[i]==='X'?1:board[i]==='O'?2:0);
+  return k;
+}
+
+function solveBoard(board,p){
+  const w=win(board);
+  if(w) return w===p?1:-1;
+  if(board.every(c=>c)) return 0;
+  const key=boardKey(board)*2+(p==='X'?0:1);
+  if(SOLVE_CACHE.has(key)) return SOLVE_CACHE.get(key);
+  let best=-2;
+  for(let i=0;i<9;i++){
+    if(board[i]) continue;
+    const nb=[...board]; nb[i]=p;
+    const res=-solveBoard(nb,opp(p));
+    if(res>best) best=res;
+    if(best===1) break;
+  }
+  SOLVE_CACHE.set(key,best);
+  return best;
+}
+
+function optimalOutcome(board,nextPlayer){
+  const w=win(board);
+  if(w) return w;
+  if(board.every(c=>c)){
+    const rem=9-board.filter(c=>c).length;
+    return rem%2===1?opp(nextPlayer):nextPlayer;
+  }
+  const res=solveBoard(board,nextPlayer);
+  if(res===1) return nextPlayer;
+  if(res===-1) return opp(nextPlayer);
+  return 'D';
+}
+
+// ═══════════════════════════════════════════════
+// THREAT ANALYSIS
+// ═══════════════════════════════════════════════
+function threats(board,p){
+  let t=0;
+  for(const[a,b,c]of LINES){
+    const r=[board[a],board[b],board[c]];
+    if(r.filter(x=>x===p).length===2&&r.filter(x=>!x).length===1)t++;
+  }
+  return t;
+}
+
+function forks(board,p){
+  let f=0;
+  for(let i=0;i<9;i++){
+    if(board[i]) continue;
+    const nb=[...board]; nb[i]=p;
+    if(threats(nb,p)>=2) f++;
+  }
+  return f;
+}
+
+// ═══════════════════════════════════════════════
+// CANDIDATE MOVE PRUNING
+// ═══════════════════════════════════════════════
+function candidateMoves(mac,mic,p,nextPlayer){
+  const all=moves(mac,mic);
+  if(!all.length) return all;
+  const pl=plain(mac);
+
+  // Predicted human moves (for pre-emptive blocking)
+  const humanPredictions=p==='O'?predictHumanMoves(mac,mic).map(x=>`${x.mi},${x.ci}`):[];
+
+  const critical=[];
+  const scored=[];
+
+  for(const[mi,ci]of all){
+    const{mac:nm}=applyMove(mac,mic,p,mi,ci);
+    const pl2=plain(nm);
+
+    // Immediate game win
+    if(win(pl2)===p){critical.unshift([mi,ci,4e9]);continue;}
+    // Block immediate game loss
+    const{mac:bm}=applyMove(mac,mic,opp(p),mi,ci);
+    if(win(plain(bm))===opp(p)){critical.push([mi,ci,3e9]);continue;}
+
+    let score=0;
+    const brd=mic[mi];
+    const ow=owner(nm[mi]);
+
+    // Macro cell outcomes
+    if(!mac[mi]&&ow===p) score+=18000*PW[mi];
+    else if(!mac[mi]&&ow===opp(p)) score-=12000*PW[mi];
+
+    // Macro threats and forks after move
+    const mt=threats(pl2,p),mto=threats(pl2,opp(p));
+    const mf=forks(pl2,p),mfo=forks(pl2,opp(p));
+    if(mf>=2) score+=40000;
+    if(mfo>=2) score-=55000;
+    score+=mf*10000+mt*4000;
+    score-=mfo*14000+mto*5500;
+
+    // Optimal micro future
+    const nb=[...brd]; nb[ci]=p;
+    const fut=optimalOutcome(nb,opp(p));
+    if(fut===p) score+=6000*PW[mi];
+    else if(fut===opp(p)) score-=4000*PW[mi];
+
+    // Micro threats and forks
+    score+=threats(nb,p)*250*PW[mi];
+    score-=threats(nb,opp(p))*400*PW[mi];
+    score+=forks(nb,p)*600*PW[mi];
+    score-=forks(nb,opp(p))*900*PW[mi];
+
+    // Draw trap
+    const filled=brd.filter(c=>c).length;
+    if(filled===8&&!win(brd)) score-=25000;
+
+    // Human pattern: if AI is O, boost moves that pre-emptively block human favourites
+    if(p==='O'){
+      const hw=humanThreatWeight(mi,ci);
+      score+=hw*800;
+      // Extra boost if this move is in human's predicted moves
+      if(humanPredictions.includes(`${mi},${ci}`)) score+=5000;
+    }
+
+    // Positional
+    score+=PW[mi]*120+PW[ci]*40;
+
+    scored.push([mi,ci,score]);
+  }
+
+  if(critical.length) return critical.sort((a,b)=>b[2]-a[2]).map(x=>[x[0],x[1]]);
+
+  scored.sort((a,b)=>b[2]-a[2]);
+  // Top 15 moves — enough for strong play, small enough for deep search
+  return scored.slice(0,15).map(x=>[x[0],x[1]]);
+}
+
+// ═══════════════════════════════════════════════
+// EVALUATION FUNCTION
+// ═══════════════════════════════════════════════
+function evaluate(mac,mic,nextPlayer){
+  const pl=plain(mac),w=win(pl);
+  if(w==='O') return 2000000;
+  if(w==='X') return-2000000;
+
+  let s=0;
+
+  // Macro line analysis
+  for(const[a,b,c]of LINES){
+    const row=[pl[a],pl[b],pl[c]];
+    const om=row.filter(x=>x==='O').length,xm=row.filter(x=>x==='X').length,e=row.filter(x=>!x).length;
+    if(xm===0){
+      if(om===2&&e===1) s+=10000;
+      else if(om===1&&e===2) s+=1000;
+    }
+    if(om===0){
+      if(xm===2&&e===1) s-=15000;
+      else if(xm===1&&e===2) s-=1500;
+    }
+  }
+
+  // Macro positions
+  for(let i=0;i<9;i++){
+    if(pl[i]==='O') s+=PW[i]*400;
+    else if(pl[i]==='X') s-=PW[i]*500;
+  }
+
+  // Macro forks
+  const mfO=forks(pl,'O'),mfX=forks(pl,'X');
+  if(mfO>=2) s+=80000;
+  if(mfX>=2) s-=110000;
+  s+=mfO*6000-mfX*9000;
+  s+=threats(pl,'O')*3000-threats(pl,'X')*4500;
+
+  // Per micro board
+  for(let mi=0;mi<9;mi++){
+    if(mac[mi]) continue;
+    const pw=PW[mi],brd=mic[mi];
+    const filled=brd.filter(c=>c).length;
+
+    const outcome=optimalOutcome(brd,nextPlayer);
+    if(outcome==='O') s+=pw*1800;
+    else if(outcome==='X') s-=pw*2400;
+
+    s+=threats(brd,'O')*pw*50;
+    s-=threats(brd,'X')*pw*80;
+    s+=forks(brd,'O')*pw*150;
+    s-=forks(brd,'X')*pw*200;
+
+    // Human pattern: cells human likes in this board are more dangerous
+    if(mode()==='1p'){
+      for(let ci=0;ci<9;ci++){
+        if(!brd[ci]){
+          const hw=humanThreatWeight(mi,ci)-1.0; // excess above baseline
+          s-=hw*pw*80; // AI should value blocking these
+        }
+      }
+    }
+
+    // Draw trap
+    if(filled>=6&&!win(brd)){
+      const rem=9-filled;
+      const lastPlayer=rem%2===1?opp(nextPlayer):nextPlayer;
+      const weight=filled===8?3000:filled===7?1200:400;
+      if(lastPlayer==='O') s-=pw*weight;
+      else s+=pw*weight;
+    }
+  }
+  return s;
+}
+
+// ═══════════════════════════════════════════════
+// TRANSPOSITION TABLE + HEURISTICS
+// ═══════════════════════════════════════════════
+const TT=new Map();
+const TTMAX=1000000;
+function ttKey(mac,mic){return mac.join('')+mic.map(b=>b.map(c=>c||'.').join('')).join('');}
+function ttGet(k){return TT.get(k);}
+function ttSet(k,v){
+  if(TT.size>=TTMAX){
+    const it=TT.keys();
+    for(let i=0;i<300000;i++) TT.delete(it.next().value);
+  }
+  TT.set(k,v);
+}
+
+const HIST=new Array(81).fill(0);
+const KILLERS=Array.from({length:24},()=>[null,null]);
+
+function resetTables(){
+  TT.clear();
+  HIST.fill(0);
+  for(let i=0;i<24;i++) KILLERS[i]=[null,null];
+}
+
+const EXACT=0,LOWER=1,UPPER=2;
+
+// ═══════════════════════════════════════════════
+// MINIMAX WITH PVS + ALL HEURISTICS
+// ═══════════════════════════════════════════════
+function mmove(mac,mic,p,depth,alpha,beta,startT,nextPlayer){
+  if(Date.now()-startT>4500) return{s:evaluate(mac,mic,nextPlayer),cut:true};
+
+  const pl=plain(mac),w=win(pl);
+  if(w==='O') return{s:2000000+depth*2000};
+  if(w==='X') return{s:-2000000-depth*2000};
+
+  const mv=moves(mac,mic);
+  if(!mv.length) return{s:evaluate(mac,mic,nextPlayer)};
+  if(depth===0) return{s:evaluate(mac,mic,nextPlayer)};
+
+  // TT lookup
+  const key=ttKey(mac,mic);
+  const cached=ttGet(key);
+  let ttMove=null;
+  if(cached&&cached.depth>=depth){
+    const{flag,s:cs}=cached;
+    if(flag===EXACT) return{s:cs};
+    if(flag===LOWER&&cs>alpha) alpha=cs;
+    if(flag===UPPER&&cs<beta) beta=cs;
+    if(alpha>=beta) return{s:cs};
+    ttMove=cached.move;
+  }
+
+  // Get pruned candidate moves
+  let cands=candidateMoves(mac,mic,p,nextPlayer);
+  if(cands.length<2) cands=mv.slice(0,Math.min(mv.length,15));
+
+  // Order: TT move → killers → history
+  const kdepth=Math.min(depth,23);
+  const ordered=[];
+  const used=new Set();
+
+  if(ttMove){
+    const tk=`${ttMove[0]},${ttMove[1]}`;
+    if(cands.some(([a,b])=>a===ttMove[0]&&b===ttMove[1])){
+      ordered.push(ttMove); used.add(tk);
+    }
+  }
+  for(const k of KILLERS[kdepth]){
+    if(k){
+      const tk=`${k[0]},${k[1]}`;
+      if(!used.has(tk)&&cands.some(([a,b])=>a===k[0]&&b===k[1])){
+        ordered.push(k); used.add(tk);
+      }
+    }
+  }
+  const rest=cands.filter(([mi,ci])=>!used.has(`${mi},${ci}`));
+  rest.sort((a,b)=>HIST[b[0]*9+b[1]]-HIST[a[0]*9+a[1]]);
+  ordered.push(...rest);
+
+  let best=p==='O'?-Infinity:Infinity;
+  let bestMove=null;
+  const origAlpha=alpha,origBeta=beta;
+  let firstMove=true;
+
+  for(const[mi,ci]of ordered){
+    if(!mv.some(([a,b])=>a===mi&&b===ci)) continue;
+    const{mac:nm,mic:nc}=applyMove(mac,mic,p,mi,ci);
+
+    let s;
+    if(firstMove){
+      const r=mmove(nm,nc,opp(p),depth-1,alpha,beta,startT,opp(p));
+      if(r.cut) return{s:best,cut:true};
+      s=r.s; firstMove=false;
+    } else {
+      // Principal Variation Search
+      const lo=p==='O'?alpha:beta-1, hi=p==='O'?alpha+1:beta;
+      let r=mmove(nm,nc,opp(p),depth-1,lo,hi,startT,opp(p));
+      if(r.cut) return{s:best,cut:true};
+      s=r.s;
+      if(((p==='O'&&s>alpha)||(p==='X'&&s<beta))&&s>lo&&s<hi){
+        r=mmove(nm,nc,opp(p),depth-1,alpha,beta,startT,opp(p));
+        if(r.cut) return{s:best,cut:true};
+        s=r.s;
+      }
+    }
+
+    if(p==='O'){if(s>best){best=s;bestMove=[mi,ci];}if(s>alpha)alpha=s;}
+    else{if(s<best){best=s;bestMove=[mi,ci];}if(s<beta)beta=s;}
+
+    if(beta<=alpha){
+      // Update heuristics on cutoff
+      const hk=mi*9+ci;
+      HIST[hk]+=depth*depth;
+      if(HIST[hk]>1000000) for(let i=0;i<81;i++) HIST[i]=Math.floor(HIST[i]*0.5);
+      if(!KILLERS[kdepth][0]||(KILLERS[kdepth][0][0]!==mi||KILLERS[kdepth][0][1]!==ci)){
+        KILLERS[kdepth][1]=KILLERS[kdepth][0];
+        KILLERS[kdepth][0]=[mi,ci];
+      }
+      break;
+    }
+  }
+
+  const flag=best<=origAlpha?UPPER:(best>=origBeta?LOWER:EXACT);
+  ttSet(key,{depth,s:best,flag,move:bestMove});
+  return{s:best};
+}
+
+// ═══════════════════════════════════════════════
+// AI MOVE SELECTION
+// ═══════════════════════════════════════════════
+function aiMove(){
+  const d=diff(),mv=moves(macro,micro);
+  if(!mv.length) return null;
+  resetTables();
+
+  if(d==='easy'){
+    // Easy: mostly random, occasionally makes a blunder
+    const sc=mv.map(([mi,ci])=>({mi,ci,s:Math.random()}));
+    sc.sort((a,b)=>b.s-a.s);
+    return[sc[0].mi,sc[0].ci];
+  }
+
+  if(d==='medium'){
+    const startT=Date.now();
+    let cands=candidateMoves(macro,micro,'O',cur);
+    if(!cands.length) cands=mv.slice(0,15);
+    let best=null,bs=-Infinity;
+    for(const[mi,ci]of cands){
+      const{mac:nm,mic:nc}=applyMove(macro,micro,'O',mi,ci);
+      const{s}=mmove(nm,nc,'X',5,-Infinity,Infinity,startT,'X');
+      if(s>bs){bs=s;best=[mi,ci];}
+    }
+    return best||cands[0]||mv[0];
+  }
+
+  // ── HARD: iterative deepening up to depth 15 with aspiration windows ──
+  const startT=Date.now();
+
+  // Log human patterns to status for fun (optional debug)
+  const hp=humanProfile;
+  let best=null;
+  let prevScore=0;
+
+  let cands=candidateMoves(macro,micro,'O',cur);
+  if(!cands.length) cands=mv.slice(0,15);
+
+  // Show predicted human moves — pre-weight them in first pass
+  const humanPred=predictHumanMoves(macro,micro);
+
+  for(let depth=1;depth<=15;depth++){
+    // Aspiration window — narrows search around expected score
+    let alpha=depth>3?prevScore-800:-Infinity;
+    let beta=depth>3?prevScore+800:Infinity;
+    let cur2=null,cs=-Infinity,timedOut=false;
+    let attempts=0;
+
+    while(attempts++<5){
+      cur2=null; cs=-Infinity; timedOut=false;
+      let ia=alpha;
+
+      for(const[mi,ci]of cands){
+        const{mac:nm,mic:nc}=applyMove(macro,micro,'O',mi,ci);
+        const{s,cut}=mmove(nm,nc,'X',depth-1,ia,beta,startT,'X');
+        if(cut){timedOut=true;break;}
+        if(s>cs){cs=s;cur2=[mi,ci];}
+        if(s>ia)ia=s;
+      }
+
+      if(timedOut) break;
+      if(cs<=alpha){alpha=-Infinity; continue;}
+      if(cs>=beta){beta=Infinity; continue;}
+      break;
+    }
+
+    if(cur2){
+      best=cur2;
+      prevScore=cs;
+      // Move best to front for next iteration
+      cands=[cur2,...cands.filter(([a,b])=>!(a===cur2[0]&&b===cur2[1]))];
+    }
+    if(timedOut||Date.now()-startT>4200) break;
+  }
+
+  return best||cands[0]||mv[0];
+}
+function showResult(winner){
+  const is1p=mode()==='1p';
+  const overlay=document.getElementById('overlay');
+  const label=document.getElementById('r-label');
+  const board=document.getElementById('board');
+  if(winner){
+    scores[winner]++;
+    document.getElementById('sx').textContent=`${is1p?'You':'X'}: ${scores.X}`;
+    document.getElementById('so').textContent=`${is1p?'AI':'O'}: ${scores.O}`;
+  }
+  let type,lbl;
+  if(!winner){type='draw';lbl='Draw!';}
+  else if(is1p){type=winner==='X'?'win':'lose';lbl=winner==='X'?'You Win!':'You Lose!';}
+  else{type='win';lbl=`Player ${winner} Wins!`;}
+  overlay.className='result-overlay result-'+type;
+  label.textContent=lbl;
+  board.classList.add('fade-out');
+  setTimeout(()=>overlay.classList.add('show'),500);
+}
+
+function initGame(){
+  const overlay=document.getElementById('overlay');
+  const board=document.getElementById('board');
+  overlay.classList.remove('show');
+  board.classList.remove('fade-out');
+  macro=Array(9).fill(null);
+  micro=Array.from({length:9},()=>Array(9).fill(null));
+  cur='X';over=false;busy=false;
+  const is1p=mode()==='1p';
+  document.getElementById('diff').style.display=is1p?'':'none';
+  const who=document.getElementById('who');
+  who.innerHTML=is1p
+    ?'<span class="pill px">You = X</span><span class="pill po">AI = O</span>'
+    :'<span class="pill px">Player 1 = X</span><span class="pill po">Player 2 = O</span>';
+  setStatus(is1p?'Your turn':`Player X's turn`,'Play anywhere — claim small boards, win the big one');
+  render();
+}
+
+function onModeChange(){initGame();}
+
+function setStatus(s,sub=''){
+  document.getElementById('status').textContent=s;
+  document.getElementById('sub').textContent=sub;
+  document.getElementById('dots').style.display='none';
+}
+
+function thinking(){
+  document.getElementById('status').textContent='AI thinking';
+  document.getElementById('sub').textContent='';
+  document.getElementById('dots').style.display='flex';
+}
+
+function endGame(w){
+  over=true;
+  document.getElementById('status').textContent='';
+  document.getElementById('sub').textContent='';
+  showResult(w);
+}
+
+function play(mi,ci){
+  if(over||busy)return;
+  if(macro[mi]||micro[mi][ci])return;
+  doMove(mi,ci);
+  if(over)return;
+  if(mode()==='1p'&&cur==='O'){
+    busy=true;thinking();render();
+    setTimeout(()=>{
+      const m=aiMove();busy=false;
+      if(m)doMove(m[0],m[1]);
+      if(!over)setStatus('Your turn','Play anywhere — claim small boards, win the big one');
+    },300);
+  }
+}
+
+function doMove(mi,ci){
+  if(mode()==="1p"&&cur==="X")recordHumanMove(mi,ci,macro,micro);
+  const res=applyMove(macro,micro,cur,mi,ci);
+  macro=res.mac;micro=res.mic;
+  const pl=plain(macro),w=win(pl);
+  if(w){endGame(w);return;}
+  if(pl.every(c=>c)){endGame(null);return;}
+  cur=opp(cur);
+  if(!over&&mode()==='2p')setStatus(`Player ${cur}'s turn`,'Play anywhere — claim small boards, win the big one');
+  render();
+}
+
+function render(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  for(let mi=0;mi<9;mi++){
+    const mc=document.createElement('div');mc.className='macro-cell';
+    const raw=macro[mi];
+    if(raw){
+      const isDraw=raw.startsWith('D:'),w=isDraw?raw[2]:raw;
+      mc.classList.add(isDraw?(w==='X'?'cdx':'cdo'):(w==='X'?'cx':'co'));
+      const bs=document.createElement('div');bs.className='big-sym '+(w==='X'?'x':'o');bs.textContent=w;mc.appendChild(bs);
+      if(isDraw){const db=document.createElement('div');db.className='dbadge '+(w==='X'?'x':'o');db.textContent='draw';mc.appendChild(db);}
+    } else {
+      const grid=document.createElement('div');grid.className='micro-board';
+      for(let ci=0;ci<9;ci++){
+        const cc=document.createElement('div');cc.className='micro-cell';
+        const v=micro[mi][ci];
+        if(v){cc.textContent=v;cc.classList.add('taken',v==='X'?'mx':'mo');}
+        else if(!over&&!busy){cc.addEventListener('click',(()=>{const a=mi,b=ci;return()=>play(a,b);})());}
+        else cc.classList.add('locked');
+        grid.appendChild(cc);
+      }
+      mc.appendChild(grid);
+    }
+    board.appendChild(mc);
+  }
+}
+
+initGame();
+</script>
+</body>
+</html>
